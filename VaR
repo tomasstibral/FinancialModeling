@@ -1,0 +1,43 @@
+import numpy as np
+import yfinance as yf
+from scipy.stats import norm
+import pandas as pd
+import datetime
+
+
+def download_data(stock, start_date, end_date):
+    ticker = yf.download(stock, start=start_date, end=end_date)
+    return ticker[['Adj Close']].rename(columns={'Adj Close': stock})
+
+
+# Calculate VaR for tomorrow (n=1)
+def calculate_var(position, c, mu, sigma):
+    var = position * (mu - sigma * norm.ppf(1 - c))
+    return var
+
+
+# Calculate VaR for any future days (n)
+def calculate_var_n(position, c, mu, sigma, n):
+    var = position * (mu * n - sigma * np.sqrt(n) * norm.ppf(1 - c))
+    return var
+
+
+if __name__ == '__main__':
+    start = datetime.datetime(2014, 1, 1)
+    end = datetime.datetime(2018, 1, 1)
+
+    # Download stock data
+    stock_data = download_data('C', start, end)
+    stock_data['returns'] = np.log(stock_data['C'] / stock_data['C'].shift(1))
+    stock_data = stock_data.dropna()  # Remove NaN values
+
+    # Investment value
+    S = 1e6
+    # Confidence level
+    c = 0.95
+
+    # Daily returns assumed normally distributed
+    mu = np.mean(stock_data['returns'])
+    sigma = np.std(stock_data['returns'])
+
+    print('Value at Risk (VaR) is: $%0.2f' % calculate_var_n(S, c, mu, sigma, 10))
